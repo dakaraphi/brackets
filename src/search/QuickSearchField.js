@@ -73,8 +73,6 @@ define(function (require, exports, module) {
      *          Number of pixels to position the popup below where $input is when constructor is called. Useful
      *          if UI is going to animate position after construction, but QuickSearchField may receive input
      *          before the animation is done.
-     * @param {?number} options.firstHighlightIndex
-     *          Index of the result that is highlighted by default. null to not highlight any result.
      */
     function QuickSearchField($input, options) {
         this.$input = $input;
@@ -85,17 +83,8 @@ define(function (require, exports, module) {
         this._handleInput   = this._handleInput.bind(this);
         this._handleKeyDown = this._handleKeyDown.bind(this);
 
-        if (options.highlightZeroResults !== undefined) {
-            this._highlightZeroResults = options.highlightZeroResults;
-        } else {
-            this._highlightZeroResults = true;
-        }
-
         $input.on("input", this._handleInput);
         $input.on("keydown", this._handleKeyDown);
-        
-        // For search History this value is set to null
-        this._firstHighlightIndex = options.firstHighlightIndex;
 
         this._dropdownTop = $input.offset().top + $input.height() + (options.verticalAdjust || 0);
     }
@@ -183,25 +172,20 @@ define(function (require, exports, module) {
     QuickSearchField.prototype._doCommit = function (index) {
         var item;
         if (this._displayedResults && this._displayedResults.length) {
-            if (index >= 0) {
-                item = this._displayedResults[index];
-            } else if (this._highlightIndex >= 0) {
-                item = this._displayedResults[this._highlightIndex];
-            }
+            var committedIndex = index !== undefined ? index : (this._highlightIndex || 0);
+            item = this._displayedResults[committedIndex];
         }
         this.options.onCommit(item, this._displayedQuery);
     };
 
     /** Update display to reflect value of _highlightIndex, & call onHighlight() */
     QuickSearchField.prototype._updateHighlight = function (explicit) {
-        if (this._$dropdown) {
-            var $items = this._$dropdown.find("li");
-            $items.removeClass("highlight");
-            if (this._highlightIndex !== null) {
-                $items.eq(this._highlightIndex).addClass("highlight");
+        var $items = this._$dropdown.find("li");
+        $items.removeClass("highlight");
+        if (this._highlightIndex !== null) {
+            $items.eq(this._highlightIndex).addClass("highlight");
 
-                this.options.onHighlight(this._displayedResults[this._highlightIndex], this.$input.val(), explicit);
-            }
+            this.options.onHighlight(this._displayedResults[this._highlightIndex], this.$input.val(), explicit);
         }
     };
 
@@ -225,14 +209,12 @@ define(function (require, exports, module) {
                     this._pending = null;
                 }
             });
-            if (this._pending) {
-                this._pending.fail(function () {
-                    if (self._pending === results) {
-                        self._render([], query);
-                        this._pending = null;
-                    }
-                });
-            }
+            this._pending.fail(function () {
+                if (self._pending === results) {
+                    self._render([], query);
+                    this._pending = null;
+                }
+            });
         } else {
             // Synchronous result - render immediately
             this._render(results, query);
@@ -282,28 +264,18 @@ define(function (require, exports, module) {
     QuickSearchField.prototype._render = function (results, query) {
         this._displayedQuery = query;
         this._displayedResults = results;
-        if (this._firstHighlightIndex >= 0) {
-            this._highlightIndex = this._firstHighlightIndex;
-        } else {
-            this._highlightIndex = null;
-        }
+        this._highlightIndex = 0;
         // TODO: fixup to match prev value's item if possible?
 
         if (results.error || results.length === 0) {
             this._closeDropdown();
-            if (this._highlightZeroResults) {
-                this.$input.addClass("no-results");
-            }
+            this.$input.addClass("no-results");
         } else if (results.hasOwnProperty("error")) {
             // Error present but falsy - no results to show, but don't decorate with error style
             this._closeDropdown();
-            if (this._highlightZeroResults) {
-                this.$input.removeClass("no-results");
-            }
+            this.$input.removeClass("no-results");
         } else {
-            if (this._highlightZeroResults) {
-                this.$input.removeClass("no-results");
-            }
+            this.$input.removeClass("no-results");
 
             var count = Math.min(results.length, this.options.maxResults),
                 html = "",

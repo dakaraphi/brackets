@@ -45,10 +45,7 @@ define(function (require, exports, module) {
         var result = new $.Deferred();
 
         HealthDataManager.getHealthData().done(function (healthDataObject) {
-            var combinedHealthAnalyticsData = HealthDataManager.getAnalyticsData(),
-                content;
-            combinedHealthAnalyticsData = [healthDataObject, combinedHealthAnalyticsData ];
-            content = JSON.stringify(combinedHealthAnalyticsData, null, 4);
+            var content = JSON.stringify(healthDataObject, null, 4);
             content = _.escape(content);
             content = content.replace(/ /g, "&nbsp;");
             content = content.replace(/(?:\r\n|\r|\n)/g, "<br />");

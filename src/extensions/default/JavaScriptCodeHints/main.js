@@ -38,9 +38,9 @@ define(function (require, exports, module) {
         PreferencesManager   = brackets.getModule("preferences/PreferencesManager"),
         Strings              = brackets.getModule("strings"),
         ParameterHintManager = require("ParameterHintManager"),
-        HintUtils            = brackets.getModule("JSUtils/HintUtils"),
-        ScopeManager         = brackets.getModule("JSUtils/ScopeManager"),
-        Session              = brackets.getModule("JSUtils/Session"),
+        HintUtils            = require("HintUtils"),
+        ScopeManager         = require("ScopeManager"),
+        Session              = require("Session"),
         Acorn                = require("node_modules/acorn/dist/acorn");
 
     var session            = null,  // object that encapsulates the current session state
@@ -77,7 +77,7 @@ define(function (require, exports, module) {
         description: Strings.DESCRIPTION_JS_HINTS
     });
 
-    // This preference controls whether detailed type metadata will be displayed within hint list. Defaults to true.
+    // This preference controls whether detailed type metadata will be desplayed within hint list. Deafults to true.
     PreferencesManager.definePreference("jscodehints.typedetails", "boolean", true, {
         description: Strings.DESCRIPTION_JS_HINTS_TYPE_DETAILS
     });

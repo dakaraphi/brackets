@@ -266,7 +266,7 @@ define(function (require, exports, module) {
      */
     Builder.prototype.build = function (strict, markCache) {
         var self = this;
-        var token, lastClosedTag, lastTextNode;
+        var token, lastClosedTag, lastTextNode, lastIndex = 0;
         var stack = this.stack;
         var attributeName = null;
         var nodeMap = {};
@@ -441,6 +441,7 @@ define(function (require, exports, module) {
                     newNode.update();
                 }
             }
+            lastIndex = token.end;
         }
 
         // If we have any tags hanging open (e.g. html or body), fail the parse if we're in strict mode,

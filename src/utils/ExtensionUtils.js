@@ -29,11 +29,10 @@
 define(function (require, exports, module) {
     "use strict";
 
-    var Async              = require("utils/Async"),
-        FileSystem         = require("filesystem/FileSystem"),
-        FileUtils          = require("file/FileUtils"),
-        PathUtils          = require("thirdparty/path-utils/path-utils"),
-        PreferencesManager = require("preferences/PreferencesManager");
+    var Async      = require("utils/Async"),
+        FileSystem = require("filesystem/FileSystem"),
+        FileUtils  = require("file/FileUtils"),
+        PathUtils  = require("thirdparty/path-utils/path-utils");
 
     /**
      * Appends a <style> tag to the document's head.
@@ -241,7 +240,6 @@ define(function (require, exports, module) {
     function loadMetadata(folder) {
         var packageJSONFile = FileSystem.getFileForPath(folder + "/package.json"),
             disabledFile = FileSystem.getFileForPath(folder + "/.disabled"),
-            baseName = FileUtils.getBaseName(folder),
             result = new $.Deferred(),
             jsonPromise = new $.Deferred(),
             disabledPromise = new $.Deferred(),
@@ -263,27 +261,16 @@ define(function (require, exports, module) {
             } else {
                 disabled = exists;
             }
-
-            var defaultDisabled = PreferencesManager.get("extensions.default.disabled");
-            if (Array.isArray(defaultDisabled) && defaultDisabled.indexOf(folder) !== -1) {
-                console.warn("Default extension has been disabled on startup: " + baseName);
-                disabled = true;
-            }
-
             disabledPromise.resolve();
         });
         Async.waitForAll([jsonPromise, disabledPromise])
             .always(function () {
                 if (!json) {
-                    // if we don't have any metadata for the extension
-                    // we should still create an empty one, so we can attach
-                    // disabled property on it in case it's disabled
-                    json = {
-                        name: baseName
-                    };
+                    result.reject(disabled);
+                } else {
+                    json.disabled = disabled;
+                    result.resolve(json);
                 }
-                json.disabled = disabled;
-                result.resolve(json);
             });
         return result.promise();
     }

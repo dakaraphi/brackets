@@ -7,7 +7,6 @@ Getting started
 ===============
 
 Running Tests
--------------
 
 2 options for running tests:
 

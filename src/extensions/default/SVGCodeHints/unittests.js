@@ -86,7 +86,7 @@ define(function (require, exports, module) {
             expect(hints[0]).toBe(expectedHint);
         }
 
-        // Verifies the exclusion of an unexpected hint.
+        // Verifies the exclution of an unexpected hint.
         function verifyHintsExcluded(hintList, unexpectedHint) {
             var hints = extractHintList(hintList);
             expect(hints.indexOf(unexpectedHint)).toBe(-1);
@@ -107,19 +107,11 @@ define(function (require, exports, module) {
             expect(token.type).toBe(type);
         }
 
-        // Helper functions for testing cursor position / selection range
-        function fixPos(pos) {
-            if (!("sticky" in pos)) {
-                pos.sticky = null;
-            }
-            return pos;
-        }
-
         // Used to test cursor position.
         function expectCursorAt(pos) {
             var selection = testEditor.getSelection();
-            expect(fixPos(selection.start)).toEqual(fixPos(selection.end));
-            expect(fixPos(selection.start)).toEqual(fixPos(pos));
+            expect(selection.start).toEqual(selection.end);
+            expect(selection.start).toEqual(pos);
         }
 
         describe("Tag Hinting", function () {

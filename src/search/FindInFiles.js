@@ -73,24 +73,12 @@ define(function (require, exports, module) {
     var searchModel = new SearchModel();
 
     /* Forward declarations */
-    var _documentChangeHandler,
-        _fileSystemChangeHandler,
-        _processCachedFileSystemEvents,
-        _debouncedFileSystemChangeHandler,
-        _fileNameChangeHandler,
-        clearSearch;
-    
-    /**
-     * Waits for FS changes to stack up until processing them
-     * (scripts like npm install can do a lot of movements on the disk)
-     * @const
-     */
-    var FILE_SYSTEM_EVENT_DEBOUNCE_TIME = 100;
+    var _documentChangeHandler, _fileSystemChangeHandler, _fileNameChangeHandler, clearSearch;
 
     /** Remove the listeners that were tracking potential search result changes */
     function _removeListeners() {
         DocumentModule.off("documentChange", _documentChangeHandler);
-        FileSystem.off("change", _debouncedFileSystemChangeHandler);
+        FileSystem.off("change", _fileSystemChangeHandler);
         DocumentManager.off("fileNameChange", _fileNameChangeHandler);
     }
 
@@ -100,7 +88,7 @@ define(function (require, exports, module) {
         _removeListeners();
 
         DocumentModule.on("documentChange", _documentChangeHandler);
-        FileSystem.on("change", _debouncedFileSystemChangeHandler);
+        FileSystem.on("change", _fileSystemChangeHandler);
         DocumentManager.on("fileNameChange",  _fileNameChangeHandler);
     }
 
@@ -452,13 +440,11 @@ define(function (require, exports, module) {
      */
     function _updateDocumentInNode(docPath) {
         DocumentManager.getDocumentForPath(docPath).done(function (doc) {
-            if (doc) {
-                var updateObject = {
+            var updateObject = {
                     "filePath": docPath,
                     "docContents": doc.getText()
                 };
-                searchDomain.exec("documentChanged", updateObject);
-            }
+            searchDomain.exec("documentChanged", updateObject);
         });
     }
 
@@ -672,7 +658,7 @@ define(function (require, exports, module) {
      * @param {array} fileList The list of files that changed.
      */
     function filesChanged(fileList) {
-        if (FindUtils.isNodeSearchDisabled() || !fileList || fileList.length === 0) {
+        if (FindUtils.isNodeSearchDisabled() || fileList.length === 0) {
             return;
         }
         var updateObject = {
@@ -690,7 +676,7 @@ define(function (require, exports, module) {
      * @param {array} fileList The list of files that was removed.
      */
     function filesRemoved(fileList) {
-        if (FindUtils.isNodeSearchDisabled() || !fileList || fileList.length === 0) {
+        if (FindUtils.isNodeSearchDisabled()) {
             return;
         }
         var updateObject = {
@@ -746,83 +732,69 @@ define(function (require, exports, module) {
 
         /*
          * Remove existing search results that match the given entry's path
-         * @param {Array.<(File|Directory)>} entries
+         * @param {(File|Directory)} entry
          */
-        function _removeSearchResultsForEntries(entries) {
-            var fullPaths = [];
-            entries.forEach(function (entry) {
-                Object.keys(searchModel.results).forEach(function (fullPath) {
-                    if (fullPath === entry.fullPath ||
-                            (entry.isDirectory && fullPath.indexOf(entry.fullPath) === 0)) {
-                        // node search : inform node that the file is removed
-                        fullPaths.push(fullPath);
-                        if (findOrReplaceInProgress) {
-                            searchModel.removeResults(fullPath);
-                            resultsChanged = true;
-                        }
+        function _removeSearchResultsForEntry(entry) {
+            Object.keys(searchModel.results).forEach(function (fullPath) {
+                if (fullPath === entry.fullPath ||
+                        (entry.isDirectory && fullPath.indexOf(entry.fullPath) === 0)) {
+                    // node search : inform node that the file is removed
+                    filesRemoved([fullPath]);
+                    if (findOrReplaceInProgress) {
+                        searchModel.removeResults(fullPath);
+                        resultsChanged = true;
                     }
-                });
+                }
             });
-            // this should be called once with a large array instead of numerous calls with single items
-            filesRemoved(fullPaths);
         }
 
         /*
-         * Add new search results for these entries and all of its children
-         * @param {Array.<(File|Directory)>} entries
+         * Add new search results for this entry and all of its children
+         * @param {(File|Directory)} entry
          * @return {jQuery.Promise} Resolves when the results have been added
          */
-        function _addSearchResultsForEntries(entries) {
-            var fullPaths = [];
-            return Async.doInParallel(entries, function (entry) {
-                var addedFiles = [],
-                    addedFilePaths = [],
-                    deferred = new $.Deferred();
+        function _addSearchResultsForEntry(entry) {
+            var addedFiles = [],
+                addedFilePaths = [],
+                deferred = new $.Deferred();
 
-                // gather up added files
-                var visitor = function (child) {
-                    // Replicate filtering that getAllFiles() does
-                    if (ProjectManager.shouldShow(child)) {
-                        if (child.isFile && _isReadableText(child.name)) {
-                            // Re-check the filtering that the initial search applied
-                            if (_inSearchScope(child)) {
-                                addedFiles.push(child);
-                                addedFilePaths.push(child.fullPath);
-                            }
+            // gather up added files
+            var visitor = function (child) {
+                // Replicate filtering that getAllFiles() does
+                if (ProjectManager.shouldShow(child)) {
+                    if (child.isFile && _isReadableText(child.name)) {
+                        // Re-check the filtering that the initial search applied
+                        if (_inSearchScope(child)) {
+                            addedFiles.push(child);
+                            addedFilePaths.push(child.fullPath);
                         }
-                        return true;
                     }
-                    return false;
-                };
+                    return true;
+                }
+                return false;
+            };
 
-                entry.visit(visitor, function (err) {
-                    if (err) {
-                        deferred.reject(err);
-                        return;
-                    }
+            entry.visit(visitor, function (err) {
+                if (err) {
+                    deferred.reject(err);
+                    return;
+                }
 
-                    //node Search : inform node about the file changes
-                    //filesChanged(addedFilePaths);
-                    fullPaths = fullPaths.concat(addedFilePaths);
+                //node Search : inform node about the file changes
+                filesChanged(addedFilePaths);
 
-                    if (findOrReplaceInProgress) {
-                        // find additional matches in all added files
-                        Async.doInParallel(addedFiles, function (file) {
-                            return _doSearchInOneFile(file)
-                                .done(function (foundMatches) {
-                                    resultsChanged = resultsChanged || foundMatches;
-                                });
-                        }).always(deferred.resolve);
-                    } else {
-                        deferred.resolve();
-                    }
-                });
-
-                return deferred.promise();
-            }).always(function () {
-                // this should be called once with a large array instead of numerous calls with single items
-                filesChanged(fullPaths);
+                if (findOrReplaceInProgress) {
+                    // find additional matches in all added files
+                    Async.doInParallel(addedFiles, function (file) {
+                        return _doSearchInOneFile(file)
+                            .done(function (foundMatches) {
+                                resultsChanged = resultsChanged || foundMatches;
+                            });
+                    }).always(deferred.resolve);
+                }
             });
+
+            return deferred.promise();
         }
 
         if (!entry) {
@@ -832,23 +804,23 @@ define(function (require, exports, module) {
 
         var addPromise;
         if (entry.isDirectory) {
-            if (added.length === 0 && removed.length === 0) {
+            if (!added || !removed || (added.length === 0 && removed.length === 0)) {
                 // If the added or removed sets are null, must redo the search for the entire subtree - we
                 // don't know which child files/folders may have been added or removed.
-                _removeSearchResultsForEntries([ entry ]);
+                _removeSearchResultsForEntry(entry);
 
                 var deferred = $.Deferred();
                 addPromise = deferred.promise();
                 entry.getContents(function (err, entries) {
-                    _addSearchResultsForEntries(entries).always(deferred.resolve);
+                    Async.doInParallel(entries, _addSearchResultsForEntry).always(deferred.resolve);
                 });
             } else {
-                _removeSearchResultsForEntries(removed);
-                addPromise = _addSearchResultsForEntries(added);
+                removed.forEach(_removeSearchResultsForEntry);
+                addPromise = Async.doInParallel(added, _addSearchResultsForEntry);
             }
         } else { // entry.isFile
-            _removeSearchResultsForEntries([ entry ]);
-            addPromise = _addSearchResultsForEntries([ entry ]);
+            _removeSearchResultsForEntry(entry);
+            addPromise = _addSearchResultsForEntry(entry);
         }
 
         addPromise.always(function () {
@@ -857,56 +829,6 @@ define(function (require, exports, module) {
                 searchModel.fireChanged();
             }
         });
-    };
-    
-    /**
-     * This stores file system events emitted by watchers that were not yet processed
-     */
-    var _cachedFileSystemEvents = [];
-    
-    /**
-     * Debounced function to process emitted file system events
-     * for cases when there's a lot of fs events emitted in a very short period of time
-     */
-    _processCachedFileSystemEvents = _.debounce(function () {
-        // we need to reduce _cachedFileSystemEvents not to contain duplicates!
-        _cachedFileSystemEvents = _cachedFileSystemEvents.reduce(function (result, obj) {
-            var fullPath = obj.entry ? obj.entry.fullPath : null;
-            // merge added & removed
-            if (result[fullPath] && obj.isDirectory) {
-                obj.added = obj.added.concat(result[fullPath].added);
-                obj.removed = obj.removed.concat(result[fullPath].removed);
-            }
-            // use the latest event as base
-            result[fullPath] = obj;
-            return result;
-        }, {});
-        _.forEach(_cachedFileSystemEvents, function (obj) {
-            _fileSystemChangeHandler(obj.event, obj.entry, obj.added, obj.removed);
-        });
-        _cachedFileSystemEvents = [];
-    }, FILE_SYSTEM_EVENT_DEBOUNCE_TIME);
-    
-    /**
-     * Wrapper function for _fileSystemChangeHandler which handles all incoming fs events
-     * putting them to cache and executing a debounced function
-     */
-    _debouncedFileSystemChangeHandler = function (event, entry, added, removed) {
-        // normalize this here so we don't need to handle null later
-        var isDirectory = false;
-        if (entry && entry.isDirectory) {
-            isDirectory = true;
-            added = added || [];
-            removed = removed || [];
-        }
-        _cachedFileSystemEvents.push({
-            event: event,
-            entry: entry,
-            isDirectory: isDirectory,
-            added: added,
-            removed: removed
-        });
-        _processCachedFileSystemEvents();
     };
 
     /**
@@ -945,7 +867,7 @@ define(function (require, exports, module) {
 
 
     /**
-     * Gets the next page of search results to append to the result set.
+     * Gets the next page of search recults to append to the result set.
      * @return {object} A promise that's resolved with the search results or rejected when the find competes.
      */
     function getNextPageofSearchResults() {

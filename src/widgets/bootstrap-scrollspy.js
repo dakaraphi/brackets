@@ -46,11 +46,12 @@
 
     , refresh: function () {
         var self = this
+          , $targets
 
         this.offsets = $([])
         this.targets = $([])
 
-        this.$body
+        $targets = this.$body
           .find(this.selector)
           .map(function () {
             var $el = $(this)

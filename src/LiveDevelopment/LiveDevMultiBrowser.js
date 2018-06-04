@@ -815,8 +815,7 @@ define(function (require, exports, module) {
     /**
      * Initialize the LiveDevelopment module.
      */
-    function init(config) {
-        exports.config = config;
+    function init() {
         MainViewManager
             .on("currentFileChange", _onFileChange);
         DocumentManager

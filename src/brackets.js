@@ -100,7 +100,6 @@ define(function (require, exports, module) {
     require("thirdparty/lodash");
     require("language/XMLUtils");
     require("language/JSONUtils");
-    require("widgets/InlineMenu");
 
     // DEPRECATED: In future we want to remove the global CodeMirror, but for now we
     // expose our required CodeMirror globally so as to avoid breaking extensions in the
@@ -151,9 +150,8 @@ define(function (require, exports, module) {
     require("search/FindInFilesUI");
     require("search/FindReplace");
 
-    //Load common JS module
-    require("JSUtils/Session");
-    require("JSUtils/ScopeManager");
+    // Compatibility shim for PanelManager to WorkspaceManager migration
+    require("view/PanelManager");
 
     PerfUtils.addMeasurement("brackets module dependencies resolved");
 

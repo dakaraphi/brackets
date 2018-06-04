@@ -92,8 +92,7 @@ define(function (require, exports, module) {
         AsyncUtils          = require("utils/Async"),
         ViewUtils           = require("utils/ViewUtils"),
         Resizer             = require("utils/Resizer"),
-        Pane                = require("view/Pane").Pane,
-        KeyBindingManager   = brackets.getModule("command/KeyBindingManager");
+        Pane                = require("view/Pane").Pane;
 
     /**
      * Preference setting name for the MainView Saved State
@@ -846,19 +845,6 @@ define(function (require, exports, module) {
     }
 
     /**
-     * Switch between panes
-     */
-    function switchPaneFocus() {
-        var $firstPane = $('#first-pane'), $secondPane = $('#second-pane');
-        if($firstPane.hasClass('active-pane')) {
-            $secondPane.click();
-        }
-        else {
-            $firstPane.click();
-        }
-    }
-
-    /**
      * DocumentManager.pathDeleted Event handler to remove a file
      * from the MRU list
      * @param {!jQuery.event} e -
@@ -1273,15 +1259,11 @@ define(function (require, exports, module) {
         } else {
             DocumentManager.getDocumentForPath(file.fullPath)
                 .done(function (doc) {
-                    if (doc) {
-                        _edit(paneId, doc, $.extend({}, options, {
-                            noPaneActivate: true
-                        }));
-                        doPostOpenActivation();
-                        result.resolve(doc.file);
-                    } else {
-                        result.resolve(null);
-                    }
+                    _edit(paneId, doc, $.extend({}, options, {
+                        noPaneActivate: true
+                    }));
+                    doPostOpenActivation();
+                    result.resolve(doc.file);
                 })
                 .fail(function (fileError) {
                     result.reject(fileError);
@@ -1634,10 +1616,6 @@ define(function (require, exports, module) {
         //  get an event handler for workspace events and we don't listen
         //  to the event before we've been initialized
         WorkspaceManager.on("workspaceUpdateLayout", _updateLayout);
-
-        // Listen to key Alt-W to toggle between panes
-        CommandManager.register(Strings.CMD_SWITCH_PANE_FOCUS, Commands.CMD_SWITCH_PANE_FOCUS, switchPaneFocus);
-        KeyBindingManager.addBinding(Commands.CMD_SWITCH_PANE_FOCUS, {key: 'Alt-W'});
     }
 
     /**
@@ -1680,8 +1658,8 @@ define(function (require, exports, module) {
 
         return result;
     }
-    
-    
+
+
     /**
      * Setup a ready event to initialize ourself
      */
@@ -1751,7 +1729,6 @@ define(function (require, exports, module) {
 
     exports.getAllOpenFiles               = getAllOpenFiles;
     exports.focusActivePane               = focusActivePane;
-    exports.switchPaneFocus               = switchPaneFocus;
 
     // Layout
     exports.setLayoutScheme               = setLayoutScheme;

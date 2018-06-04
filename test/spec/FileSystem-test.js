@@ -56,10 +56,9 @@ define(function (require, exports, module) {
         }
 
         function readCallback() {
-            var callback = function (err, data, encoding, stat) {
+            var callback = function (err, data, stat) {
                 callback.error = err;
                 callback.data = data;
-                callback.encoding = "utf8";
                 callback.stat = stat;
                 callback.wasCalled = true;
             };

@@ -102,27 +102,6 @@ define(function (require, exports, module) {
             });
         });
 
-        // Helper functions for testing cursor position / selection range
-        function fixPos(pos) {
-            if (!("sticky" in pos)) {
-                pos.sticky = null;
-            }
-            return pos;
-        }
-        function fixSel(sel) {
-            fixPos(sel.start);
-            fixPos(sel.end);
-            if (!("reversed" in sel)) {
-                sel.reversed = false;
-            }
-            return sel;
-        }
-        function fixSels(sels) {
-            sels.forEach(function (sel) {
-                fixSel(sel);
-            });
-            return sels;
-        }
 
         /** Expect a file to exist (failing test if not) and then delete it */
         function expectAndDelete(fullPath) {
@@ -995,7 +974,7 @@ define(function (require, exports, module) {
                     var currentDocument = DocumentManager.getCurrentDocument(),
                         currentEditor = EditorManager.getActiveEditor();
                     expect(currentDocument.file.fullPath).toEqual(newFilePath);
-                    expect(fixSels(currentEditor.getSelections())).toEqual(fixSels(selections));
+                    expect(currentEditor.getSelections()).toEqual(selections);
                 });
 
                 runs(function () {

@@ -166,9 +166,9 @@ define(function (require, exports, module) {
                 names.forEach(function (name, index) {
                     var entryPath = this.fullPath + name;
 
-                    var entryStats = stats[index];
-                    if (this._fileSystem._indexFilter(entryPath, name, entryStats)) {
-                        var entry;
+                    if (this._fileSystem._indexFilter(entryPath, name)) {
+                        var entryStats = stats[index],
+                            entry;
 
                         // Note: not all entries necessarily have associated stats.
                         if (typeof entryStats === "string") {

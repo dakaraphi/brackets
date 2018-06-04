@@ -678,14 +678,9 @@ define(function (require, exports, module) {
             this._index++;
         }
 
-        if (!this._token) {
-            if (this._state !== TEXT) {
-                // We hit EOF in the middle of processing something else.
-                this._emitSpecialToken("error");
-            } else {
-                this._emitTokenIfNonempty("text");
-                this._startSection();
-            }
+        if (this._index === this._buffer.length && this._state !== TEXT) {
+            // We hit EOF in the middle of processing something else.
+            this._emitSpecialToken("error");
         }
         return this._token;
     };

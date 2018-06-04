@@ -90,20 +90,6 @@ function _removeFailedInstallation(installDirectory) {
 function _performInstall(packagePath, installDirectory, validationResult, callback) {
     validationResult.installedTo = installDirectory;
 
-    function fail(err) {
-        _removeFailedInstallation(installDirectory);
-        callback(err, null);
-    }
-
-    function finish() {
-        // The status may have already been set previously (as in the
-        // DISABLED case.
-        if (!validationResult.installationStatus) {
-            validationResult.installationStatus = Statuses.INSTALLED;
-        }
-        callback(null, validationResult);
-    }
-
     fs.mkdirs(installDirectory, function (err) {
         if (err) {
             callback(err);
@@ -113,9 +99,16 @@ function _performInstall(packagePath, installDirectory, validationResult, callba
 
         fs.copy(sourceDir, installDirectory, function (err) {
             if (err) {
-                return fail(err);
+                _removeFailedInstallation(installDirectory);
+                callback(err, null);
+            } else {
+                // The status may have already been set previously (as in the
+                // DISABLED case.
+                if (!validationResult.installationStatus) {
+                    validationResult.installationStatus = Statuses.INSTALLED;
+                }
+                callback(null, validationResult);
             }
-            finish();
         });
     });
 }
@@ -220,7 +213,7 @@ function _cmdInstall(packagePath, destinationDirectory, options, callback, pCall
         return;
     }
 
-    function validateCallback(err, validationResult) {
+    var validateCallback = function (err, validationResult) {
         validationResult.localPath = packagePath;
 
         // This is a wrapper for the callback that will delete the temporary
@@ -236,7 +229,7 @@ function _cmdInstall(packagePath, destinationDirectory, options, callback, pCall
         // If there was trouble at the validation stage, we stop right away.
         if (err || validationResult.errors.length > 0) {
             validationResult.installationStatus = Statuses.FAILED;
-            deleteTempAndCallback(err);
+            deleteTempAndCallback(err, validationResult);
             return;
         }
 
@@ -287,7 +280,7 @@ function _cmdInstall(packagePath, destinationDirectory, options, callback, pCall
                     // both legacy and new extensions installed.
                     fs.remove(legacyDirectory, function (err) {
                         if (err) {
-                            deleteTempAndCallback(err);
+                            deleteTempAndCallback(err, validationResult);
                             return;
                         }
                         _removeAndInstall(packagePath, installDirectory, validationResult, deleteTempAndCallback);
@@ -298,7 +291,7 @@ function _cmdInstall(packagePath, destinationDirectory, options, callback, pCall
             } else if (hasLegacyPackage) {
                 validationResult.installationStatus = Statuses.NEEDS_UPDATE;
                 validationResult.name = guessedName;
-                deleteTempAndCallback(null);
+                deleteTempAndCallback(null, validationResult);
             } else {
                 _checkExistingInstallation(validationResult, installDirectory, systemInstallDirectory, deleteTempAndCallback);
             }
@@ -307,9 +300,9 @@ function _cmdInstall(packagePath, destinationDirectory, options, callback, pCall
             validationResult.disabledReason = null;
             _performInstall(packagePath, installDirectory, validationResult, deleteTempAndCallback);
         }
-    }
+    };
 
-    validate(packagePath, options, validateCallback);
+    validate(packagePath, {}, validateCallback);
 }
 
 /**
@@ -503,7 +496,7 @@ function init(domainManager) {
             description: "absolute filesystem path where this extension should be installed"
         }, {
             name: "options",
-            type: "{disabledDirectory: !string, apiVersion: !string, nameHint: ?string, systemExtensionDirectory: !string, proxy: ?string}",
+            type: "{disabledDirectory: !string, apiVersion: !string, nameHint: ?string, systemExtensionDirectory: !string}",
             description: "installation options: disabledDirectory should be set so that extensions can be installed disabled."
         }],
         [{

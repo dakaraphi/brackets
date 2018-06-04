@@ -46,12 +46,6 @@ define(function (require, exports, module) {
     var FIRST_FILTER_INDEX = 3;
 
     /**
-     * Constant: max number of characters for the filter name
-     * @type {number}
-     */
-    var FILTER_NAME_CHARACTER_MAX = 20;
-
-    /**
      * Context Info on which files the filter will be applied to.
      * It will be initialized when createFilterPicker is called and if specified, editing UI will
      * indicate how many files are excluded by the filter. Label should be of the form "in ..."
@@ -329,8 +323,7 @@ define(function (require, exports, module) {
             };
         var dialog = Dialogs.showModalDialogUsingTemplate(Mustache.render(EditFilterTemplate, templateVars)),
             $nameField = dialog.getElement().find(".exclusions-name"),
-            $editField = dialog.getElement().find(".exclusions-editor"),
-            $remainingField = dialog.getElement().find(".exclusions-name-characters-remaining");
+            $editField = dialog.getElement().find(".exclusions-editor");
 
         $nameField.val(filter.name);
         $editField.val(filter.patterns.join("\n")).focus();
@@ -343,28 +336,6 @@ define(function (require, exports, module) {
                 return glob.trim().length;
             });
         }
-
-        $nameField.bind('input', function () {
-            var remainingCharacters = FILTER_NAME_CHARACTER_MAX - $(this).val().length;
-            if (remainingCharacters < 0.25*FILTER_NAME_CHARACTER_MAX) {
-                $remainingField.show();
-
-                $remainingField.text(StringUtils.format(
-                    Strings.FILTER_NAME_REMAINING,
-                    remainingCharacters
-                ));
-
-                if (remainingCharacters < 0) {
-                    $remainingField.addClass("exclusions-name-characters-limit-reached");
-                } else {
-                    $remainingField.removeClass("exclusions-name-characters-limit-reached");
-                }
-            }
-            else {
-                $remainingField.hide();
-            }
-            updatePrimaryButton();
-        });
 
         dialog.done(function (buttonId) {
             if (buttonId === Dialogs.DIALOG_BTN_OK) {
@@ -396,9 +367,8 @@ define(function (require, exports, module) {
 
         function updatePrimaryButton() {
             var trimmedValue = $editField.val().trim();
-            var exclusionNameLength = $nameField.val().length;
 
-            $primaryBtn.prop("disabled", !trimmedValue.length || (exclusionNameLength > FILTER_NAME_CHARACTER_MAX));
+            $primaryBtn.prop("disabled", !trimmedValue.length);
         }
 
         $editField.on("input", updatePrimaryButton);

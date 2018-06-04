@@ -56,7 +56,8 @@ define(function (require, exports, module) {
     if (isDevBuild) {
         additionalGlobals.BUILD_TYPE = strings.DEVELOPMENT_BUILD;
     } else {
-        additionalGlobals.BUILD_TYPE = strings.RELEASE_BUILD;
+        var isReleaseBuild = (brackets.platform === "mac" || brackets.platform === "win");
+        additionalGlobals.BUILD_TYPE = (isReleaseBuild ? strings.RELEASE_BUILD : strings.EXPERIMENTAL_BUILD);
     }
 
     // Insert application strings

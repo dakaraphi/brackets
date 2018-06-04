@@ -575,7 +575,7 @@ define(function (require, exports, module) {
         var normalizedKey = normalizeKeyDescriptorString(key);
 
         if (!normalizedKey) {
-            console.log("Failed to normalize " + key);
+            console.log("Fail to nomalize " + key);
         } else if (_isKeyAssigned(normalizedKey)) {
             var binding = _keyMap[normalizedKey],
                 command = CommandManager.get(binding.commandID),
@@ -644,7 +644,7 @@ define(function (require, exports, module) {
             bindingsToDelete = [],
             existing;
 
-        // For platform: "all", use explicit current platform
+        // For platform: "all", use explicit current plaform
         if (explicitPlatform && explicitPlatform !== "all") {
             targetPlatform = explicitPlatform;
         } else {

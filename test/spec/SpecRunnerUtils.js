@@ -21,7 +21,7 @@
  *
  */
 
-/*global jasmine, expect, beforeEach, waitsFor, waitsForDone, runs, spyOn, KeyboardEvent */
+/*global jasmine, expect, beforeEach, waitsFor, waitsForDone, runs, spyOn */
 
 define(function (require, exports, module) {
     'use strict';
@@ -255,54 +255,34 @@ define(function (require, exports, module) {
     }
 
     function _resetPermissionsOnSpecialTempFolders() {
-        var entries = [],
-            result = new $.Deferred(),
-            promise,
-            entryPromise = new $.Deferred(),
-            tempDir;
+        var folders = [],
+            baseDir = getTempDirectory(),
+            promise;
 
-        function visitor(entry) {
-            entries.push(entry.fullPath);
-            return true;
-        }
-        tempDir = FileSystem.getDirectoryForPath(getTempDirectory());
-        tempDir.visit(visitor, function(err){
-            if (!err) {
-                entryPromise.resolve(entries);
-            } else {
-                if (err === FileSystemError.NOT_FOUND) {
-                    entryPromise.resolve(entries);
+        folders.push(baseDir + "/cant_read_here");
+        folders.push(baseDir + "/cant_write_here");
+
+        promise = Async.doSequentially(folders, function (folder) {
+            var deferred = new $.Deferred();
+
+            _getFileSystem().resolve(folder, function (err, entry) {
+                if (!err) {
+                    // Change permissions if the directory exists
+                    chmod(folder, "777").then(deferred.resolve, deferred.reject);
                 } else {
-                    entryPromise.reject();
-                }
-            }
-        });
-        entryPromise.done(function(entries){
-            promise = Async.doSequentially(entries, function (entry) {
-                var deferred = new $.Deferred();
-
-                FileSystem.resolve(entry, function (err, item) {
-                    if (!err) {
-                        // Change permissions if the directory exists
-                        chmod(entry, "777").then(deferred.resolve, deferred.reject);
+                    if (err === FileSystemError.NOT_FOUND) {
+                        // Resolve the promise since the folder to reset doesn't exist
+                        deferred.resolve();
                     } else {
-                        if (err === FileSystemError.NOT_FOUND) {
-                            // Resolve the promise since the folder to reset doesn't exist
-                            deferred.resolve();
-                        } else {
-                            deferred.reject();
-                        }
+                        deferred.reject();
                     }
-                });
+                }
+            });
 
-                return deferred.promise();
-            }, true);
-            promise.then(result.resolve, result.reject);
-        }).fail(function() {
-            result.reject();
-        });
-        
-        return result.promise();
+            return deferred.promise();
+        }, true);
+
+        return promise;
     }
 
     /**
@@ -583,7 +563,7 @@ define(function (require, exports, module) {
 
             _testWindow = window.open(getBracketsSourceRoot() + "/index.html?" + params.toString(), "_blank", optionsStr);
 
-            // Displays the primary console messages from the test window in the
+            // Displays the primary console messages from the test window in the the
             // test runner's console as well.
             ["debug", "log", "info", "warn", "error"].forEach(function (method) {
                 var originalMethod = _testWindow.console[method];
@@ -1012,29 +992,18 @@ define(function (require, exports, module) {
     }
 
     /**
-     * Simulate a key event.
+     * Simulate key event. Found this code here:
+     * http://stackoverflow.com/questions/10455626/keydown-simulation-in-chrome-fires-normally-but-not-the-correct-key
+     *
+     * TODO: need parameter(s) for modifier keys
+     *
      * @param {Number} key Key code
      * @param (String) event Key event to simulate
      * @param {HTMLElement} element Element to receive event
-     * @param {KeyboardEventInit} options Optional arguments for key event
      */
-    function simulateKeyEvent(key, event, element, options) {
-        var doc = element.ownerDocument;
-
-        if(typeof options === 'undefined') {
-            options = {
-                view: doc.defaultView,
-                bubbles: true,
-                cancelable: true,
-                keyIdentifer: key
-            };
-        } else {
-            options.view = doc.defaultView;
-            options.bubbles = true;
-            options.cancelable = true;
-            options.keyIdentifier = key;
-        }
-        var oEvent = new KeyboardEvent(event, options);
+    function simulateKeyEvent(key, event, element) {
+        var doc = element.ownerDocument,
+            oEvent = doc.createEvent('KeyboardEvent');
 
         if (event !== "keydown" && event !== "keyup" && event !== "keypress") {
             console.log("SpecRunnerUtils.simulateKeyEvent() - unsupported keyevent: " + event);
@@ -1060,9 +1029,15 @@ define(function (require, exports, module) {
             }
         });
 
+        if (oEvent.initKeyboardEvent) {
+            oEvent.initKeyboardEvent(event, true, true, doc.defaultView, key, 0, false, false, false, false);
+        } else {
+            oEvent.initKeyEvent(event, true, true, doc.defaultView, false, false, false, false, key, 0);
+        }
+
         oEvent.keyCodeVal = key;
         if (oEvent.keyCode !== key) {
-            console.log("SpecRunnerUtils.simulateKeyEvent() - keyCode mismatch: " + oEvent.keyCode);
+            console.log("keyCode mismatch " + oEvent.keyCode + "(" + oEvent.which + ")");
         }
 
         element.dispatchEvent(oEvent);
@@ -1349,7 +1324,7 @@ define(function (require, exports, module) {
             /**
              * Expects the given editor's selection to be a cursor at the given position (no range selected)
              */
-            toHaveCursorPosition: function (line, ch, ignoreSelection) {
+            toHaveCursorPosition: function (line, ch) {
                 var editor = this.actual;
                 var selection = editor.getSelection();
                 var notString = this.isNot ? "not " : "";
@@ -1371,7 +1346,7 @@ define(function (require, exports, module) {
 
                 // when adding the not operator, it's confusing to check both the size of the
                 // selection and the position. We just check the position in that case.
-                if (this.isNot || ignoreSelection) {
+                if (this.isNot) {
                     return positionsMatch;
                 } else {
                     return !selectionMoreThanOneCharacter && positionsMatch;

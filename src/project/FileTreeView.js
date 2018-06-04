@@ -25,13 +25,14 @@
 
 /**
  * This is the view layer (template) for the file tree in the sidebar. It takes a FileTreeViewModel
- * and renders it to the given element using Preact. User actions are signaled via an ActionCreator
+ * and renders it to the given element using React. User actions are signaled via an ActionCreator
  * (in the Flux sense).
  */
 define(function (require, exports, module) {
     "use strict";
 
-    var Preact            = require("thirdparty/preact"),
+    var React             = require("thirdparty/react"),
+        ReactDOM          = require("thirdparty/react-dom"),
         Classnames        = require("thirdparty/classnames"),
         Immutable         = require("thirdparty/immutable"),
         _                 = require("thirdparty/lodash"),
@@ -41,7 +42,7 @@ define(function (require, exports, module) {
         ViewUtils         = require("utils/ViewUtils"),
         KeyEvent          = require("utils/KeyEvent");
 
-    var DOM = Preact.DOM;
+    var DOM = React.DOM;
 
     /**
      * @private
@@ -115,7 +116,7 @@ define(function (require, exports, module) {
      * Create an appropriate div based "thickness" to indent the tree correctly.
      *
      * @param {int} depth The depth of the current node.
-     * @return {PreactComponent} The resulting div.
+     * @return {ReactComponent} The resulting div.
      */
     function _createThickness(depth) {
         return DOM.div({
@@ -132,7 +133,7 @@ define(function (require, exports, module) {
      * Create, and indent correctly, the arrow icons used for the folders.
      *
      * @param {int} depth The depth of the current node.
-     * @return {PreactComponent} The resulting ins.
+     * @return {ReactComponent} The resulting ins.
      */
     function _createAlignedIns(depth) {
         return DOM.ins({
@@ -176,7 +177,7 @@ define(function (require, exports, module) {
          * this component, so we keep the model up to date by sending every update via an action.
          */
         handleInput: function (e) {
-            this.props.actions.setRenameValue(this.props.parentPath + this.refs.name.value.trim());
+            this.props.actions.setRenameValue(this.refs.name.value.trim());
 
             if (e.keyCode !== KeyEvent.DOM_VK_LEFT &&
                     e.keyCode !== KeyEvent.DOM_VK_RIGHT) {
@@ -196,97 +197,6 @@ define(function (require, exports, module) {
     };
 
     /**
-     * This is a mixin that provides drag and drop move function.
-     */
-    var dragAndDrop = {
-        handleDrag: function(e) {
-            // Disable drag when renaming
-            if (this.props.entry.get("rename")) {
-                e.preventDefault();
-                e.stopPropagation();
-                return false;
-            }
-
-            // Pass the dragged item path.
-            e.dataTransfer.setData("text", JSON.stringify({
-                path: this.myPath()
-            }));
-
-            this.props.actions.dragItem(this.myPath());
-
-            this.setDragImage(e);
-            e.stopPropagation();
-        },
-        handleDrop: function(e) {
-            var data = JSON.parse(e.dataTransfer.getData("text"));
-
-            this.props.actions.moveItem(data.path, this.myPath());
-            this.setDraggedOver(false);
-
-            this.clearDragTimeout();
-            e.stopPropagation();
-        },
-
-        handleDragEnd: function(e) {
-            this.clearDragTimeout();
-        },
-
-        handleDragOver: function(e) {
-            var data = JSON.parse(e.dataTransfer.getData("text"));
-
-            if (data.path === this.myPath() || FileUtils.getParentPath(data.path) === this.myPath()) {
-                e.preventDefault();
-                e.stopPropagation();
-                return;
-            }
-            var self = this;
-            this.setDraggedOver(true);
-
-            // Open the directory tree when item is dragged over a directory
-            if (!this.dragOverTimeout) {
-                this.dragOverTimeout = window.setTimeout(function() {
-                    self.props.actions.setDirectoryOpen(self.myPath(), true);
-                    self.dragOverTimeout = null;
-                }, 800);
-            }
-
-            e.preventDefault(); // Allow the drop
-            e.stopPropagation();
-        },
-
-        handleDragLeave: function(e) {
-            this.setDraggedOver(false);
-            this.clearDragTimeout();
-        },
-
-        clearDragTimeout: function() {
-            if (this.dragOverTimeout) {
-                clearTimeout(this.dragOverTimeout);
-                this.dragOverTimeout = null;
-            }
-        },
-        setDraggedOver: function(draggedOver) {
-            if (this.state.draggedOver !== draggedOver) {
-                this.setState({
-                    draggedOver: draggedOver
-                });
-            }
-        },
-
-        setDragImage: function(e) {
-            var div = window.document.createElement('div');
-            div.style.position = 'absolute';
-            div.style.color = '#fff';
-            div.textContent = this.props.name;
-            window.document.body.appendChild(div);
-            e.dataTransfer.setDragImage(div, -10, -10);
-            setTimeout(function() {
-                window.document.body.removeChild(div);
-            }, 0);
-        }
-    };
-
-    /**
      * @private
      *
      * This component presents an input field to the user for renaming a file.
@@ -296,7 +206,7 @@ define(function (require, exports, module) {
      * * name: the name of the file, including the extension
      * * actions: the action creator responsible for communicating actions the user has taken
      */
-    var fileRenameInput = Preact.createFactory(Preact.createClass({
+    var fileRenameInput = React.createFactory(React.createClass({
         mixins: [renameBehavior],
 
         /**
@@ -309,7 +219,6 @@ define(function (require, exports, module) {
 
             var node = this.refs.name;
             node.setSelectionRange(0, _getName(fullname, extension).length);
-            node.focus(); // set focus on the rename input
             ViewUtils.scrollElementIntoView($("#project-files-container"), $(node), true);
         },
 
@@ -356,6 +265,7 @@ define(function (require, exports, module) {
             if (this.props.entry.get("rename")) {
                 return;
             }
+            e.preventDefault();
         }
     };
 
@@ -381,7 +291,7 @@ define(function (require, exports, module) {
          * Calls the icon providers to get the collection of icons (most likely just one) for
          * the current file or directory.
          *
-         * @return {Array.<PreactComponent>} icon components to render
+         * @return {Array.<ReactComponent>} icon components to render
          */
         getIcons: function () {
             var result,
@@ -392,14 +302,14 @@ define(function (require, exports, module) {
                 result = extensions.get("icons").map(function (callback) {
                     try {
                         var result = callback(data);
-                        if (result && !Preact.isValidElement(result)) {
-                            result = Preact.DOM.span({
+                        if (result && !React.isValidElement(result)) {
+                            result = React.DOM.span({
                                 dangerouslySetInnerHTML: {
                                     __html: $(result)[0].outerHTML
                                 }
                             });
                         }
-                        return result;  // by this point, returns either undefined or a Preact object
+                        return result;  // by this point, returns either undefined or a React object
                     } catch (e) {
                         console.error("Exception thrown in FileTreeView icon provider: " + e, e.stack);
                     }
@@ -452,8 +362,8 @@ define(function (require, exports, module) {
      * * extensions: registered extensions for the file tree
      * * forceRender: causes the component to run render
      */
-    var fileNode = Preact.createFactory(Preact.createClass({
-        mixins: [contextSettable, pathComputer, extendable, dragAndDrop],
+    var fileNode = React.createFactory(React.createClass({
+        mixins: [contextSettable, pathComputer, extendable],
 
         /**
          * Ensures that we always have a state object.
@@ -484,11 +394,11 @@ define(function (require, exports, module) {
 
             if (isSelected && !wasSelected) {
                 // TODO: This shouldn't really know about project-files-container
-                // directly. It is probably the case that our Preact tree should actually
+                // directly. It is probably the case that our React tree should actually
                 // start with project-files-container instead of just the interior of
                 // project-files-container and then the file tree will be one self-contained
                 // functional unit.
-                ViewUtils.scrollElementIntoView($("#project-files-container"), $(Preact.findDOMNode(this)), true);
+                ViewUtils.scrollElementIntoView($("#project-files-container"), $(ReactDOM.findDOMNode(this)), true);
             } else if (!isSelected && wasSelected && this.state.clickTimer !== null) {
                 this.clearTimer();
             }
@@ -570,11 +480,6 @@ define(function (require, exports, module) {
                 extension = LanguageManager.getCompoundFileExtension(fullname),
                 name = _getName(fullname, extension);
 
-            // React automatically wraps content in a span element whereas preact doesn't, so do it manually
-            if (name) {
-                name = DOM.span({}, name);
-            }
-
             if (extension) {
                 extension = DOM.span({
                     className: "extension"
@@ -594,13 +499,11 @@ define(function (require, exports, module) {
                     className: this.getClasses("jstree-leaf"),
                     onClick: this.handleClick,
                     onMouseDown: this.handleMouseDown,
-                    onDoubleClick: this.handleDoubleClick,
-                    draggable: true,
-                    onDragStart: this.handleDrag
+                    onDoubleClick: this.handleDoubleClick
                 },
                 DOM.ins({
                     className: "jstree-icon"
-                })
+                }),
             ];
 
             var thickness = _createThickness(this.props.depth);
@@ -687,7 +590,7 @@ define(function (require, exports, module) {
      * * name: the name of the file, including the extension
      * * actions: the action creator responsible for communicating actions the user has taken
      */
-    var directoryRenameInput = Preact.createFactory(Preact.createClass({
+    var directoryRenameInput = React.createFactory(React.createClass({
         mixins: [renameBehavior],
 
         /**
@@ -698,7 +601,6 @@ define(function (require, exports, module) {
 
             var node = this.refs.name;
             node.setSelectionRange(0, fullname.length);
-            node.focus(); // set focus on the rename input
             ViewUtils.scrollElementIntoView($("#project-files-container"), $(node), true);
         },
 
@@ -736,14 +638,8 @@ define(function (require, exports, module) {
      * * extensions: registered extensions for the file tree
      * * forceRender: causes the component to run render
      */
-    directoryNode = Preact.createFactory(Preact.createClass({
-        mixins: [contextSettable, pathComputer, extendable, dragAndDrop],
-
-        getInitialState: function() {
-            return {
-                draggedOver: false
-            };
-        },
+    directoryNode = React.createFactory(React.createClass({
+        mixins: [contextSettable, pathComputer, extendable],
 
         /**
          * We need to update this component if the sort order changes or our entry object
@@ -754,8 +650,7 @@ define(function (require, exports, module) {
             return nextProps.forceRender ||
                 this.props.entry !== nextProps.entry ||
                 this.props.sortDirectoriesFirst !== nextProps.sortDirectoriesFirst ||
-                this.props.extensions !== nextProps.extensions ||
-                (nextState !== undefined && this.state.draggedOver !== nextState.draggedOver);
+                this.props.extensions !== nextProps.extensions;
         },
 
         /**
@@ -843,22 +738,11 @@ define(function (require, exports, module) {
                 'context-node': entry.get("context")
             });
 
-            var nodeClasses = "jstree-" + nodeClass;
-            if (this.state.draggedOver) {
-                nodeClasses += " jstree-draggedOver";
-            }
-
             var liArgs = [
                 {
-                    className: this.getClasses(nodeClasses),
+                    className: this.getClasses("jstree-" + nodeClass),
                     onClick: this.handleClick,
-                    onMouseDown: this.handleMouseDown,
-                    draggable: true,
-                    onDragStart: this.handleDrag,
-                    onDrop: this.handleDrop,
-                    onDragEnd: this.handleDragEnd,
-                    onDragOver: this.handleDragOver,
-                    onDragLeave: this.handleDragLeave
+                    onMouseDown: this.handleMouseDown
                 },
                 _createAlignedIns(this.props.depth)
             ];
@@ -874,16 +758,11 @@ define(function (require, exports, module) {
                     parentPath: this.props.parentPath
                 });
             } else {
-                // React automatically wraps content in a span element whereas preact doesn't, so do it manually
-                if (this.props.name) {
-                    var name = DOM.span({}, this.props.name);
-                }
-
                 // Need to flatten the arguments because getIcons returns an array
                 var aArgs = _.flatten([{
                     href: "#",
                     className: directoryClasses
-                }, thickness, this.getIcons(), name]);
+                }, thickness, this.getIcons(), this.props.name]);
                 nameDisplay = DOM.a.apply(DOM.a, aArgs);
             }
 
@@ -908,7 +787,7 @@ define(function (require, exports, module) {
      * * extensions: registered extensions for the file tree
      * * forceRender: causes the component to run render
      */
-    directoryContents = Preact.createFactory(Preact.createClass({
+    directoryContents = React.createFactory(React.createClass({
 
         /**
          * Need to re-render if the sort order or the contents change.
@@ -973,7 +852,7 @@ define(function (require, exports, module) {
      * * visible: should this be visible now
      * * selectedClassName: class name applied to the element that is selected
      */
-    var fileSelectionBox = Preact.createFactory(Preact.createClass({
+    var fileSelectionBox = React.createFactory(React.createClass({
         /**
          * When the component has updated in the DOM, reposition it to where the currently
          * selected node is located now.
@@ -983,7 +862,7 @@ define(function (require, exports, module) {
                 return;
             }
 
-            var node = Preact.findDOMNode(this),
+            var node = ReactDOM.findDOMNode(this),
                 selectedNode = $(node.parentNode).find(this.props.selectedClassName),
                 selectionViewInfo = this.props.selectionViewInfo;
 
@@ -1022,7 +901,7 @@ define(function (require, exports, module) {
      * * selectedClassName: class name applied to the element that is selected
      * * className: class to be applied to the extension element
      */
-    var selectionExtension = Preact.createFactory(Preact.createClass({
+    var selectionExtension = React.createFactory(React.createClass({
         /**
          * When the component has updated in the DOM, reposition it to where the currently
          * selected node is located now.
@@ -1032,7 +911,7 @@ define(function (require, exports, module) {
                 return;
             }
 
-            var node = Preact.findDOMNode(this),
+            var node = ReactDOM.findDOMNode(this),
                 selectedNode = $(node.parentNode).find(this.props.selectedClassName).closest("li"),
                 selectionViewInfo = this.props.selectionViewInfo;
 
@@ -1098,7 +977,7 @@ define(function (require, exports, module) {
      * * forceRender: causes the component to run render
      * * platform: platform that Brackets is running on
      */
-    var fileTreeView = Preact.createFactory(Preact.createClass({
+    var fileTreeView = React.createFactory(React.createClass({
 
         /**
          * Update for any change in the tree data or directory sorting preference.
@@ -1109,19 +988,6 @@ define(function (require, exports, module) {
                 this.props.sortDirectoriesFirst !== nextProps.sortDirectoriesFirst ||
                 this.props.extensions !== nextProps.extensions ||
                 this.props.selectionViewInfo !== nextProps.selectionViewInfo;
-        },
-
-        handleDrop: function(e) {
-            var data = JSON.parse(e.dataTransfer.getData("text"));
-            this.props.actions.moveItem(data.path, this.props.parentPath);
-            e.stopPropagation();
-        },
-
-        /**
-         * Allow the Drop
-         */
-        handleDragOver: function(e) {
-            e.preventDefault();
         },
 
         render: function () {
@@ -1165,20 +1031,15 @@ define(function (require, exports, module) {
                     actions: this.props.actions,
                     forceRender: this.props.forceRender,
                     platform: this.props.platform
-                }),
-                args = {
-                    onDrop: this.handleDrop,
-                    onDragOver: this.handleDragOver
-                };
-
+                });
 
             return DOM.div(
-                args,
-                contents,
+                null,
                 selectionBackground,
                 contextBackground,
                 extensionForSelection,
-                extensionForContext
+                extensionForContext,
+                contents
             );
         }
     }));
@@ -1198,7 +1059,7 @@ define(function (require, exports, module) {
             return;
         }
 
-        Preact.render(fileTreeView({
+        ReactDOM.render(fileTreeView({
             treeData: viewModel.treeData,
             selectionViewInfo: viewModel.selectionViewInfo,
             sortDirectoriesFirst: viewModel.sortDirectoriesFirst,

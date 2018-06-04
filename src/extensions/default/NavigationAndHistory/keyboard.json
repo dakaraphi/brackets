@@ -27,23 +27,5 @@
             "key": "Cmd-Shift-[",
             "platform": "mac"
         }
-    ],
-    "navigation.jump.back":  [
-        {
-            "key": "Alt-I"
-        },
-        {
-            "key": "Cmd-Alt-Left",
-            "platform": "mac"
-        }
-    ],
-    "navigation.jump.fwd":  [
-        {
-            "key": "Alt-Shift-I"
-        },
-        {
-            "key": "Cmd-Alt-Right",
-            "platform": "mac"
-        }
     ]
 }

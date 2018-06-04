@@ -131,7 +131,6 @@ define(function (require, exports, module) {
         var self = this;
         if (colorString !== this._color) {
             var range = this.getCurrentRange();
-
             if (!range) {
                 return;
             }

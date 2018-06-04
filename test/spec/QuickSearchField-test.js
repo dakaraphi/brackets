@@ -49,8 +49,7 @@ define(function (require, exports, module) {
                 formatter: function (item) { return "<li>" + item + "</li>"; },
                 resultProvider: function (query) { return provider(query); },
                 onCommit: function (item, query) { return onCommit(item, query); },
-                onHighlight: jasmine.createSpy(),
-                firstHighlightIndex: 0
+                onHighlight: jasmine.createSpy()
             };
             searchField = new QuickSearchField($mockInput, options);
 
